@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Analisador NF-e</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0d0f14;--bg2:#13161e;--bg3:#1a1e2a;--border:#252a38;--accent:#00e5a0;--accent2:#0077ff;--warn:#ff6b35;--text:#e2e8f0;--muted:#64748b;--red:#ff4d6d;--yellow:#ffd166;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'IBM Plex Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+header{background:var(--bg2);border-bottom:1px solid var(--border);padding:12px 24px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:100;}
+.logo{font-family:'IBM Plex Mono',monospace;font-size:18px;font-weight:600;color:var(--accent);}
+.logo span{color:var(--muted);}
+#badge{margin-left:auto;background:var(--bg3);border:1px solid var(--border);border-radius:20px;padding:3px 14px;font-size:12px;font-family:'IBM Plex Mono',monospace;color:var(--muted);}
+#badge.on{color:var(--accent);border-color:var(--accent);}
+.wrap{display:flex;height:calc(100vh - 49px);}
+.side{width:305px;min-width:305px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto;}
+.main{flex:1;overflow-y:auto;}
+.sb{padding:14px;border-bottom:1px solid var(--border);}
+.sb h3{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;}
+
+/* upload */
+.upload-area{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:14px 10px;border:2px dashed var(--border);border-radius:8px;cursor:pointer;text-align:center;transition:border-color .2s,background .2s;}
+.upload-area:hover{border-color:var(--accent);background:rgba(0,229,160,.04);}
+.upload-area .ico{font-size:24px;}
+.upload-area .lbl{font-size:13px;font-weight:600;}
+.upload-area .sub{font-size:11px;color:var(--muted);}
+#fileStatus{font-size:11px;color:var(--muted);margin-top:6px;text-align:center;min-height:15px;}
+
+/* rename folder btn */
+.btn-pasta{width:100%;margin-top:8px;padding:9px;background:transparent;border:1px solid var(--accent);color:var(--accent);border-radius:6px;font-weight:700;font-size:12px;cursor:pointer;letter-spacing:.3px;}
+.btn-pasta:hover{background:rgba(0,229,160,.08);}
+
+/* stats */
+.sg{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+.sc{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:9px;}
+.sc .l{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:2px;}
+.sc .v{font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:600;color:var(--accent);}
+.sc .v.r{color:var(--red);}.sc .v.y{color:var(--yellow);}.sc .v.b{color:var(--accent2);}
+
+/* filters */
+.fi{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:7px 10px;color:var(--text);font-size:12px;outline:none;margin-bottom:7px;}
+.fi:focus{border-color:var(--accent2);}
+.fi-sel{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:6px 8px;color:var(--text);font-size:12px;outline:none;margin-bottom:7px;}
+.slbl{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:5px;}
+.chips{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px;}
+.chip{padding:3px 8px;border-radius:20px;border:1px solid var(--border);background:var(--bg3);color:var(--muted);font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;cursor:pointer;user-select:none;display:inline-flex;align-items:center;gap:3px;}
+.chip:hover{border-color:var(--accent2);color:var(--text);}
+.chip.on{background:rgba(0,229,160,.12);border-color:var(--accent);color:var(--accent);}
+.chip .n{font-size:9px;background:var(--bg);border-radius:8px;padding:1px 4px;color:var(--muted);}
+.chip.on .n{background:rgba(0,229,160,.2);color:var(--accent);}
+.pchips{display:flex;flex-direction:column;gap:3px;max-height:130px;overflow-y:auto;margin-bottom:8px;}
+.pchip{display:flex;align-items:center;gap:5px;padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--muted);font-size:11px;cursor:pointer;user-select:none;}
+.pchip:hover{border-color:var(--accent2);color:var(--text);}
+.pchip.on{background:rgba(0,119,255,.1);border-color:var(--accent2);color:var(--accent2);}
+.pchip .pn{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pchip .pc{font-family:'IBM Plex Mono',monospace;font-size:10px;opacity:.6;}
+.pchip .n{font-size:9px;background:var(--bg);border-radius:8px;padding:1px 4px;color:var(--muted);flex-shrink:0;}
+.pchip.on .n{background:rgba(0,119,255,.2);color:var(--accent2);}
+.btn-f{flex:1;padding:8px;background:var(--accent2);color:#fff;border:none;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer;}
+.btn-f:hover{opacity:.85;}
+.btn-c{padding:8px 11px;background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--muted);font-size:12px;cursor:pointer;}
+.btn-c:hover{border-color:var(--red);color:var(--red);}
+#fResult{font-size:11px;color:var(--muted);margin-top:7px;text-align:center;}
+
+/* nota list */
+.nlist{flex:1;overflow-y:auto;}
+.ni{padding:11px 14px;border-bottom:1px solid var(--border);cursor:pointer;}
+.ni:hover{background:var(--bg3);}
+.ni.sel{background:rgba(0,229,160,.06);border-left:3px solid var(--accent);}
+.ni.err{border-left:3px solid var(--red);}
+.ni .nh{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;gap:4px;}
+.ni .nn{font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;color:var(--accent);}
+.ni .nv{font-family:'IBM Plex Mono',monospace;font-size:11px;}
+.ni .nd{font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ni .ndt{font-size:10px;color:var(--muted);margin-top:2px;}
+.ni .ne{font-size:10px;color:var(--red);margin-top:2px;}
+.be{font-size:9px;padding:1px 5px;border-radius:8px;background:rgba(0,119,255,.12);color:var(--accent2);border:1px solid var(--accent2);font-weight:700;white-space:nowrap;}
+.bs2{font-size:9px;padding:1px 5px;border-radius:8px;background:rgba(0,229,160,.12);color:var(--accent);border:1px solid var(--accent);font-weight:700;white-space:nowrap;}
+.empty{padding:28px;text-align:center;color:var(--muted);font-size:13px;}
+
+/* main content */
+.welcome{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;text-align:center;gap:12px;padding:20px;}
+.welcome .ico{font-size:52px;opacity:.22;}
+.welcome h2{font-size:18px;font-weight:600;color:var(--muted);}
+.welcome p{font-size:13px;color:var(--muted);max-width:340px;line-height:1.6;}
+
+/* detail */
+.det{padding:22px 26px;}
+.chave{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:8px 11px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);word-break:break-all;margin-bottom:14px;}
+.chave span{color:var(--accent2);}
+.tg{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px;}
+.tc{background:var(--bg2);border:1px solid var(--border);border-radius:7px;padding:10px;text-align:center;}
+.tc .tl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;}
+.tc .tv{font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:600;}
+.dg{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;}
+.dc{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:13px;}
+.dc h4{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:8px;display:flex;align-items:center;gap:5px;}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--accent);flex-shrink:0;}
+.dot.b{background:var(--accent2);}.dot.y{background:var(--yellow);}
+.dr{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border);font-size:12px;}
+.dr:last-child{border-bottom:none;}
+.dr .k{color:var(--muted);}
+.dr .v{font-family:'IBM Plex Mono',monospace;font-size:11px;text-align:right;max-width:170px;overflow:hidden;text-overflow:ellipsis;}
+.dr .v.g{color:var(--accent);}.dr .v.y{color:var(--yellow);}
+.itens{background:var(--bg2);border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:14px;}
+.itens h4{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);padding:10px 13px;border-bottom:1px solid var(--border);}
+table{width:100%;border-collapse:collapse;}
+thead th{padding:7px 11px;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);background:var(--bg3);text-align:left;font-weight:600;}
+tbody tr{border-bottom:1px solid var(--border);}
+tbody tr:hover{background:var(--bg3);}
+tbody tr:last-child{border-bottom:none;}
+tbody td{padding:7px 11px;font-size:12px;}
+td.m{font-family:'IBM Plex Mono',monospace;font-size:11px;}td.r{text-align:right;}td.g{color:var(--accent);}
+.big-be{display:inline-flex;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:700;background:rgba(0,119,255,.15);color:var(--accent2);border:1px solid var(--accent2);margin-left:8px;vertical-align:middle;}
+.big-bs{display:inline-flex;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:700;background:rgba(0,229,160,.12);color:var(--accent);border:1px solid var(--accent);margin-left:8px;vertical-align:middle;}
+.btn-rename{margin-top:8px;padding:6px 14px;background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--muted);font-size:12px;cursor:pointer;display:inline-block;}
+.btn-rename:hover{border-color:var(--accent);color:var(--accent);}
+
+/* dashboard */
+.bsc{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:15px;}
+.bsc .bl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;}
+.bsc .bv{font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:600;color:var(--accent);}
+.bsc .bs3{font-size:11px;color:var(--muted);margin-top:2px;}
+.uf-row{display:flex;align-items:center;gap:7px;margin-bottom:3px;}
+.uf-lbl{font-family:'IBM Plex Mono',monospace;font-size:11px;width:26px;}
+.uf-bw{flex:1;height:6px;background:var(--bg3);border-radius:3px;overflow:hidden;}
+.uf-bar{height:100%;background:var(--accent);border-radius:3px;}
+.uf-cnt{font-size:11px;color:var(--muted);width:22px;text-align:right;}
+
+/* overlay/modal */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:200;display:flex;align-items:center;justify-content:center;}
+.modal{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:26px;width:580px;max-width:96vw;max-height:90vh;display:flex;flex-direction:column;}
+.modal h3{font-size:15px;font-weight:700;margin-bottom:6px;}
+.msub{font-size:11px;color:var(--muted);margin-bottom:14px;}
+.modal label{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);display:block;margin-bottom:5px;}
+.modal input{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:9px 11px;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:12px;outline:none;margin-bottom:5px;}
+.modal input:focus{border-color:var(--accent);}
+.mhint{font-size:11px;color:var(--muted);margin-bottom:14px;}
+.merr{font-size:12px;color:var(--red);margin-bottom:10px;display:none;}
+.mbtns{display:flex;gap:8px;justify-content:flex-end;margin-top:14px;flex-shrink:0;}
+.btn-ok{padding:8px 18px;background:var(--accent);color:#000;border:none;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer;}
+.btn-ok:hover{opacity:.85;}
+.btn-ok.danger{background:var(--warn);}
+.btn-x{padding:8px 14px;background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--muted);font-size:12px;cursor:pointer;}
+.btn-x:hover{border-color:var(--red);color:var(--red);}
+
+/* pasta rename modal */
+.pasta-input-wrap{display:flex;gap:8px;margin-bottom:14px;}
+.pasta-input{flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:9px 11px;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:12px;outline:none;}
+.pasta-input:focus{border-color:var(--accent);}
+.btn-prev{padding:9px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;cursor:pointer;white-space:nowrap;}
+.btn-prev:hover{border-color:var(--accent2);color:var(--accent2);}
+
+/* preview table */
+.prev-table-wrap{flex:1;overflow-y:auto;border:1px solid var(--border);border-radius:8px;margin-bottom:4px;}
+.prev-table{width:100%;border-collapse:collapse;}
+.prev-table thead th{padding:8px 11px;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);background:var(--bg3);text-align:left;font-weight:600;position:sticky;top:0;}
+.prev-table tbody tr{border-bottom:1px solid var(--border);}
+.prev-table tbody tr:last-child{border-bottom:none;}
+.prev-table tbody td{padding:7px 11px;font-size:11px;font-family:'IBM Plex Mono',monospace;}
+.prev-table tbody td.label{font-family:'IBM Plex Sans',sans-serif;font-size:12px;}
+.prev-row-ok td{color:var(--text);}
+.prev-row-err td{color:var(--red);}
+.arrow{color:var(--accent2);font-size:12px;}
+.tag-ok{display:inline-block;padding:1px 6px;border-radius:8px;font-size:10px;background:rgba(0,229,160,.12);color:var(--accent);border:1px solid var(--accent);}
+.tag-err{display:inline-block;padding:1px 6px;border-radius:8px;font-size:10px;background:rgba(255,77,109,.12);color:var(--red);border:1px solid var(--red);}
+.tag-skip{display:inline-block;padding:1px 6px;border-radius:8px;font-size:10px;background:rgba(100,116,139,.12);color:var(--muted);border:1px solid var(--muted);}
+.prev-summary{font-size:12px;color:var(--muted);margin-bottom:4px;}
+
+::-webkit-scrollbar{width:5px;}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+.loading{display:flex;align-items:center;gap:8px;padding:14px;color:var(--muted);font-size:13px;}
+.spinner{width:15px;height:15px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0;}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">NF<span>-e</span> Analyzer</div>
+  <div id="badge">Nenhum arquivo carregado</div>
+</header>
+<div class="wrap">
+<aside class="side">
+
+  <!-- Upload XMLs -->
+  <div class="sb">
+    <h3>📁 Arquivos XML</h3>
+    <label class="upload-area" for="fileInput">
+      <span class="ico">📂</span>
+      <span class="lbl">Clique para selecionar</span>
+      <span class="sub">Um ou vários arquivos .xml</span>
+    </label>
+    <input type="file" id="fileInput" multiple accept=".xml" style="display:none" onchange="carregarArquivos()"/>
+    <div id="fileStatus"></div>
+    <button class="btn-pasta" onclick="abrirModalPasta()">✏️ Renomear pasta inteira</button>
+  </div>
+
+  <!-- Resumo -->
+  <div class="sb" id="statsSection" style="display:none">
+    <h3>📊 Resumo</h3>
+    <div class="sg">
+      <div class="sc"><div class="l" id="lTotal">Total</div><div class="v" id="sTotal">0</div></div>
+      <div class="sc"><div class="l">Erros</div><div class="v r" id="sErros">0</div></div>
+      <div class="sc"><div class="l">Valor</div><div class="v b" id="sValor">0</div></div>
+      <div class="sc"><div class="l">ICMS-ST</div><div class="v y" id="sST">0</div></div>
+    </div>
+  </div>
+
+  <!-- Filtros -->
+  <div class="sb" id="filterSection" style="display:none">
+    <h3>🔍 Filtros</h3>
+    <input type="text" class="fi" id="fTexto" placeholder="Destinatário, NF, CNPJ..."/>
+    <select class="fi-sel" id="fOrdem">
+      <option value="data">Por Data</option>
+      <option value="valor">Por Valor</option>
+      <option value="nf">Por NF nº</option>
+    </select>
+    <div class="slbl">Estado destino</div>
+    <div class="chips" id="ufChips"></div>
+    <div class="slbl">Produto</div>
+    <input type="text" class="fi" id="fProdBusca" placeholder="Buscar produto..." oninput="renderProdChips()"/>
+    <div class="pchips" id="prodChips"></div>
+    <div style="display:flex;gap:6px;">
+      <button class="btn-f" onclick="applyFilter()">🔎 Filtrar</button>
+      <button class="btn-c" onclick="clearFilters()">✕ Limpar</button>
+    </div>
+    <div id="fResult"></div>
+  </div>
+
+  <!-- Lista notas -->
+  <div class="nlist" id="notaList">
+    <div class="empty">Selecione arquivos XML</div>
+  </div>
+</aside>
+
+<main class="main" id="mainContent">
+  <div class="welcome">
+    <div class="ico">🧾</div>
+    <h2>Nenhuma nota carregada</h2>
+    <p>Clique em <strong>📂 Clique para selecionar</strong> e escolha os XMLs.<br><br>Para renomear todos de uma pasta, clique em <strong style="color:var(--accent)">✏️ Renomear pasta inteira</strong>.</p>
+  </div>
+</main>
+</div>
+
+<!-- Modal renomear arquivo individual -->
+<div class="overlay" id="modalArq" style="display:none" onclick="if(event.target===this)this.style.display='none'">
+  <div class="modal" style="width:460px" onclick="event.stopPropagation()">
+    <h3>✏️ Renomear arquivo</h3>
+    <div class="msub" id="arqSub"></div>
+    <label>Novo nome (sem .xml)</label>
+    <input type="text" id="arqInput"/>
+    <div class="mhint">Padrão: DDMMAAAA_TIPO_FORNECEDOR_VALOR</div>
+    <div class="merr" id="arqErr"></div>
+    <div class="mbtns">
+      <button class="btn-x" onclick="document.getElementById('modalArq').style.display='none'">Cancelar</button>
+      <button class="btn-ok" onclick="confirmarRenomearArq()">Renomear</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal renomear pasta inteira -->
+<div class="overlay" id="modalPasta" style="display:none" onclick="if(event.target===this)fecharModalPasta()">
+  <div class="modal" onclick="event.stopPropagation()">
+    <h3>✏️ Renomear pasta inteira</h3>
+    <div class="msub">Informe o caminho da pasta. Todos os XMLs serão renomeados para o padrão <strong>DDMMAAAA_TIPO_FORNECEDOR_VALOR</strong>.</div>
+
+    <div class="pasta-input-wrap">
+      <input type="text" class="pasta-input" id="pastaPath" placeholder="C:\Users\suporte\...\29 11 19 A 30 11 19"/>
+      <button class="btn-prev" onclick="previewPasta()">👁 Preview</button>
+    </div>
+
+    <div class="merr" id="pastaErr"></div>
+    <div class="prev-summary" id="prevSummary" style="display:none"></div>
+    <div class="prev-table-wrap" id="prevTableWrap" style="display:none;min-height:120px;max-height:340px;">
+      <table class="prev-table">
+        <thead><tr><th>Nome atual</th><th></th><th>Novo nome</th><th>Status</th></tr></thead>
+        <tbody id="prevBody"></tbody>
+      </table>
+    </div>
+
+    <div class="mbtns">
+      <button class="btn-x" onclick="fecharModalPasta()">Cancelar</button>
+      <button class="btn-ok danger" id="btnConfirmarPasta" style="display:none" onclick="confirmarPasta()">⚡ Renomear tudo</button>
+    </div>
+  </div>
+</div>
+
+<script>
+var allNotas=[];var filteredNotas=[];var allProds=[];var selUFs={};var selProds={};var renameIdx=-1;
+function fmt(v){return new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(v||0);}
+function setBadge(t,on){var b=document.getElementById('badge');b.textContent=t;b.className=on?'on':'';}
+
+// ── Upload XMLs ───────────────────────────────────────────────────────────────
+async function carregarArquivos(){
+  var input=document.getElementById('fileInput');
+  if(!input.files||!input.files.length)return;
+  document.getElementById('fileStatus').textContent=input.files.length+' arquivo(s)...';
+  document.getElementById('notaList').innerHTML='<div class="loading"><div class="spinner"></div> Lendo XMLs...</div>';
+  setBadge('Carregando...',false);
+  var fd=new FormData();
+  for(var i=0;i<input.files.length;i++)fd.append('files',input.files[i]);
+  try{
+    var res=await fetch('/api/upload',{method:'POST',body:fd});
+    var data=await res.json();
+    if(data.error){alert('Erro: '+data.error);return;}
+    data.notas.forEach(function(n){
+      var idx=allNotas.findIndex(function(x){return x.arquivo===n.arquivo;});
+      if(idx>=0)allNotas[idx]=n; else allNotas.push(n);
+    });
+    filteredNotas=allNotas.slice();
+    document.getElementById('fileStatus').textContent=allNotas.length+' nota(s) carregada(s)';
+    setBadge(allNotas.length+' XMLs',true);
+    updateStats(allNotas);buildUFChips();buildProdList();renderList();showDashboard(allNotas);
+    document.getElementById('statsSection').style.display='block';
+    document.getElementById('filterSection').style.display='block';
+  }catch(e){alert('Erro: '+e.message);document.getElementById('fileStatus').textContent='Falha.';}
+}
+
+// ── Stats ─────────────────────────────────────────────────────────────────────
+function updateStats(notas){
+  var fil=notas.length!==allNotas.length;
+  var ok=notas.filter(function(n){return n.status==='ok';});
+  var err=notas.filter(function(n){return n.status!=='ok';});
+  document.getElementById('sTotal').textContent=fil?(notas.length+'/'+allNotas.length):allNotas.length;
+  document.getElementById('sErros').textContent=err.length;
+  document.getElementById('sValor').textContent=fmt(ok.reduce(function(s,n){return s+n.vNF;},0)).replace('R$','').trim();
+  document.getElementById('sST').textContent=fmt(ok.reduce(function(s,n){return s+n.vST;},0)).replace('R$','').trim();
+  document.getElementById('lTotal').textContent=fil?'Filtradas':'Total';
+}
+
+// ── Chips UF ──────────────────────────────────────────────────────────────────
+function buildUFChips(){
+  selUFs={};var cnt={};
+  allNotas.forEach(function(n){if(n.dest_uf)cnt[n.dest_uf]=(cnt[n.dest_uf]||0)+1;});
+  var ufs=Object.keys(cnt).sort(function(a,b){return cnt[b]-cnt[a]||a.localeCompare(b);});
+  document.getElementById('ufChips').innerHTML=ufs.map(function(uf){
+    return '<span class="chip" id="uf_'+uf+'" onclick="toggleUF(\''+uf+'\')">'+uf+'<span class="n">'+cnt[uf]+'</span></span>';
+  }).join('')||'<span style="font-size:11px;color:var(--muted)">—</span>';
+}
+function toggleUF(uf){selUFs[uf]=!selUFs[uf];var el=document.getElementById('uf_'+uf);if(el)el.className='chip'+(selUFs[uf]?' on':'');}
+
+// ── Chips Produto ─────────────────────────────────────────────────────────────
+function buildProdList(){
+  selProds={};var map={};
+  allNotas.filter(function(n){return n.status==='ok';}).forEach(function(n){
+    (n.items||[]).forEach(function(it){
+      if(!map[it.codigo])map[it.codigo]={codigo:it.codigo,descricao:it.descricao,count:0};
+      map[it.codigo].count++;
+    });
+  });
+  allProds=Object.values(map).sort(function(a,b){return b.count-a.count||a.descricao.localeCompare(b.descricao);});
+  renderProdChips();
+}
+function renderProdChips(){
+  var s=(document.getElementById('fProdBusca').value||'').toLowerCase();
+  var vis=allProds.filter(function(p){return !s||p.descricao.toLowerCase().indexOf(s)>=0||p.codigo.toLowerCase().indexOf(s)>=0;});
+  if(!vis.length){document.getElementById('prodChips').innerHTML='<div style="font-size:11px;color:var(--muted);padding:3px">Nenhum produto</div>';return;}
+  document.getElementById('prodChips').innerHTML=vis.map(function(p){
+    var on=selProds[p.codigo]?' on':'';
+    var sid=p.codigo.replace(/[^a-zA-Z0-9]/g,'_');
+    return '<div class="pchip'+on+'" id="pc_'+sid+'" onclick="toggleProd(\''+sid+'\',\''+p.codigo.replace(/\\/g,'\\\\').replace(/'/g,"\\'")+'\')"><span class="pn" title="'+p.descricao+'">'+p.descricao+'</span><span class="pc">'+p.codigo+'</span><span class="n">'+p.count+'</span></div>';
+  }).join('');
+}
+function toggleProd(sid,codigo){selProds[codigo]=!selProds[codigo];var el=document.getElementById('pc_'+sid);if(el)el.className='pchip'+(selProds[codigo]?' on':'');}
+
+// ── Filtrar ───────────────────────────────────────────────────────────────────
+function applyFilter(){
+  var texto=document.getElementById('fTexto').value.toLowerCase().trim();
+  var ordem=document.getElementById('fOrdem').value;
+  var ufsA=Object.keys(selUFs).filter(function(u){return selUFs[u];});
+  var prodsA=Object.keys(selProds).filter(function(c){return selProds[c];});
+  filteredNotas=allNotas.filter(function(n){
+    if(ufsA.length&&ufsA.indexOf(n.dest_uf)===-1)return false;
+    if(prodsA.length){var cods=(n.items||[]).map(function(it){return it.codigo;});if(!prodsA.some(function(c){return cods.indexOf(c)>=0;}))return false;}
+    if(texto){var hay=[n.nNF,n.dest_nome,n.dest_cnpj,n.emit_nome,n.arquivo].join(' ').toLowerCase();if(hay.indexOf(texto)===-1)return false;}
+    return true;
+  });
+  filteredNotas.sort(function(a,b){
+    if(ordem==='valor')return(b.vNF||0)-(a.vNF||0);
+    if(ordem==='nf')return parseInt(b.nNF||0)-parseInt(a.nNF||0);
+    return(b.dhEmi_raw||'')>(a.dhEmi_raw||'')?1:-1;
+  });
+  var nf=(ufsA.length?1:0)+(prodsA.length?1:0)+(texto?1:0);
+  document.getElementById('fResult').textContent=filteredNotas.length+' nota(s)'+(nf?' com '+nf+' filtro(s)':'');
+  updateStats(filteredNotas);showDashboard(filteredNotas);renderList();
+}
+function clearFilters(){
+  document.getElementById('fTexto').value='';document.getElementById('fOrdem').value='data';document.getElementById('fProdBusca').value='';
+  Object.keys(selUFs).forEach(function(u){selUFs[u]=false;var el=document.getElementById('uf_'+u);if(el)el.className='chip';});
+  Object.keys(selProds).forEach(function(c){selProds[c]=false;});
+  document.querySelectorAll('.pchip.on').forEach(function(el){el.className='pchip';});
+  document.getElementById('fResult').textContent='';
+  filteredNotas=allNotas.slice();updateStats(allNotas);showDashboard(allNotas);renderList();
+}
+
+// ── Lista ─────────────────────────────────────────────────────────────────────
+function renderList(){
+  var list=document.getElementById('notaList');
+  if(!filteredNotas.length){list.innerHTML='<div class="empty">Nenhuma nota encontrada</div>';return;}
+  var html='';
+  for(var i=0;i<filteredNotas.length;i++){
+    var n=filteredNotas[i];
+    var tip=n.tpNF==='1'?'<span class="bs2">S</span>':'<span class="be">E</span>';
+    if(n.status!=='ok'){
+      html+='<div class="ni err" onclick="abrirNota('+i+')"><div class="nh"><span class="nn">'+n.arquivo+'</span></div><div class="ne">'+(n.erro||'Erro')+'</div></div>';
+    }else{
+      html+='<div class="ni" id="ni'+i+'" onclick="abrirNota('+i+')"><div class="nh"><span class="nn">NF '+n.nNF+'</span>'+tip+'<span class="nv">'+fmt(n.vNF)+'</span></div><div class="nd">'+(n.dest_nome||'—')+' · '+(n.dest_uf||'')+'</div><div class="ndt">'+(n.dhEmi||'')+'</div></div>';
+    }
+  }
+  list.innerHTML=html;
+}
+
+// ── Abrir nota ────────────────────────────────────────────────────────────────
+function abrirNota(i){
+  document.querySelectorAll('.ni').forEach(function(el){el.classList.remove('sel');});
+  var el=document.getElementById('ni'+i);if(el)el.classList.add('sel');
+  var n=filteredNotas[i];if(!n)return;
+  if(n.status!=='ok'){document.getElementById('mainContent').innerHTML='<div style="padding:28px"><h2 style="color:var(--red);margin-bottom:10px">Erro</h2><p style="color:var(--muted)">'+(n.erro||'')+'</p></div>';return;}
+  showDetalhe(n,i);
+}
+
+// ── Detalhe ───────────────────────────────────────────────────────────────────
+function showDetalhe(n,idx){
+  var tp=n.vNF>0?((n.vICMS+n.vST+n.vPIS+n.vCOFINS)/n.vNF*100).toFixed(1):'0.0';
+  var tb=n.tpNF==='1'?'<span class="big-bs">SAIDA</span>':'<span class="big-be">ENTRADA</span>';
+  var rows='';
+  (n.items||[]).forEach(function(it){rows+='<tr><td class="m">'+it.codigo+'</td><td>'+it.descricao+'</td><td class="m">'+it.ncm+'</td><td class="m">'+it.cfop+'</td><td class="m r">'+it.quantidade.toLocaleString('pt-BR')+' '+it.unidade+'</td><td class="m r">'+fmt(it.vUnitario)+'</td><td class="m r g">'+fmt(it.vTotal)+'</td></tr>';});
+  document.getElementById('mainContent').innerHTML=
+    '<div class="det">'
+    +'<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;">'
+      +'<div><div style="font-size:19px;font-weight:700;font-family:IBM Plex Mono,monospace;color:var(--accent)">NF-e '+n.nNF+' '+tb+'</div>'
+      +'<div style="font-size:12px;color:var(--muted);margin-top:3px">'+(n.dhEmi||'')+' · '+n.natOp+'</div>'
+      +'<button class="btn-rename" onclick="abrirRenomearArq('+idx+')">✏️ Renomear este arquivo</button></div>'
+      +'<div style="text-align:right"><div style="font-size:21px;font-weight:700;font-family:IBM Plex Mono,monospace;">'+fmt(n.vNF)+'</div><div style="font-size:11px;color:var(--muted)">Valor total</div></div>'
+    +'</div>'
+    +'<div class="chave">Chave: <span>'+n.chave+'</span> · Prot: <span>'+n.nProt+'</span></div>'
+    +'<div class="tg"><div class="tc"><div class="tl">ICMS</div><div class="tv" style="color:var(--accent)">'+fmt(n.vICMS)+'</div></div><div class="tc"><div class="tl">ICMS-ST</div><div class="tv" style="color:var(--yellow)">'+fmt(n.vST)+'</div></div><div class="tc"><div class="tl">PIS</div><div class="tv" style="color:var(--accent2)">'+fmt(n.vPIS)+'</div></div><div class="tc"><div class="tl">COFINS</div><div class="tv" style="color:var(--accent2)">'+fmt(n.vCOFINS)+'</div></div></div>'
+    +'<div class="dg"><div class="dc"><h4><span class="dot"></span>Emitente</h4><div class="dr"><span class="k">Razão Social</span><span class="v">'+n.emit_nome+'</span></div><div class="dr"><span class="k">CNPJ</span><span class="v">'+n.emit_cnpj+'</span></div><div class="dr"><span class="k">Município</span><span class="v">'+n.emit_mun+' - '+n.emit_uf+'</span></div></div>'
+    +'<div class="dc"><h4><span class="dot b"></span>Destinatário</h4><div class="dr"><span class="k">Razão Social</span><span class="v">'+n.dest_nome+'</span></div><div class="dr"><span class="k">CNPJ/CPF</span><span class="v">'+n.dest_cnpj+'</span></div><div class="dr"><span class="k">Município</span><span class="v">'+n.dest_mun+' - '+n.dest_uf+'</span></div></div>'
+    +'<div class="dc"><h4><span class="dot y"></span>Transporte</h4><div class="dr"><span class="k">Transportadora</span><span class="v">'+(n.transp_nome||'—')+'</span></div><div class="dr"><span class="k">Frete</span><span class="v">'+n.modFrete+'</span></div><div class="dr"><span class="k">Pagamento</span><span class="v">'+n.tPag+'</span></div><div class="dr"><span class="k">Valor pago</span><span class="v g">'+fmt(n.vPag)+'</span></div></div>'
+    +'<div class="dc"><h4><span class="dot"></span>Totais</h4><div class="dr"><span class="k">Produtos</span><span class="v">'+fmt(n.vProd)+'</span></div><div class="dr"><span class="k">Tributos</span><span class="v y">'+fmt(n.vICMS+n.vST+n.vPIS+n.vCOFINS)+'</span></div><div class="dr"><span class="k">Carga trib.</span><span class="v y">'+tp+'%</span></div><div class="dr"><span class="k">Total NF-e</span><span class="v g">'+fmt(n.vNF)+'</span></div></div></div>'
+    +(rows?'<div class="itens"><h4>Itens ('+n.items.length+')</h4><table><thead><tr><th>Cód.</th><th>Descrição</th><th>NCM</th><th>CFOP</th><th style="text-align:right">Qtd.</th><th style="text-align:right">Unit.</th><th style="text-align:right">Total</th></tr></thead><tbody>'+rows+'</tbody></table></div>':'')
+    +'</div>';
+}
+
+// ── Dashboard ─────────────────────────────────────────────────────────────────
+function showDashboard(notas){
+  if(!notas)notas=allNotas;
+  var ok=notas.filter(function(n){return n.status==='ok';});
+  var tv=ok.reduce(function(s,n){return s+n.vNF;},0);
+  var ti=ok.reduce(function(s,n){return s+n.vICMS;},0);
+  var ts=ok.reduce(function(s,n){return s+n.vST;},0);
+  var tp=ok.reduce(function(s,n){return s+n.vPIS;},0);
+  var tc=ok.reduce(function(s,n){return s+n.vCOFINS;},0);
+  var ufC={};ok.forEach(function(n){ufC[n.dest_uf]=(ufC[n.dest_uf]||0)+1;});
+  var ufs=Object.entries(ufC).sort(function(a,b){return b[1]-a[1];}).slice(0,8);
+  var mx=ufs.length?ufs[0][1]:1;
+  var ufH=ufs.map(function(u){return '<div class="uf-row"><span class="uf-lbl">'+u[0]+'</span><div class="uf-bw"><div class="uf-bar" style="width:'+Math.round(u[1]/mx*100)+'%"></div></div><span class="uf-cnt">'+u[1]+'</span></div>';}).join('');
+  var fil=notas.length<allNotas.length?' <span style="font-size:12px;color:var(--accent2)">(filtradas)</span>':'';
+  document.getElementById('mainContent').innerHTML=
+    '<div style="padding:20px 24px;">'
+    +'<div style="font-size:15px;font-weight:700;margin-bottom:13px">Visão geral — '+ok.length+' notas'+fil+'</div>'
+    +'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px;">'
+      +'<div class="bsc"><div class="bl">Faturamento</div><div class="bv">'+fmt(tv)+'</div><div class="bs3">'+ok.length+' NF-e</div></div>'
+      +'<div class="bsc"><div class="bl">Total tributos</div><div class="bv" style="color:var(--yellow)">'+fmt(ti+ts+tp+tc)+'</div><div class="bs3">ICMS+ST+PIS+COFINS</div></div>'
+      +'<div class="bsc"><div class="bl">ICMS-ST</div><div class="bv" style="color:var(--warn)">'+fmt(ts)+'</div><div class="bs3">Substituição trib.</div></div>'
+    +'</div>'
+    +'<div class="dg" style="margin-bottom:12px">'
+      +'<div class="dc"><h4><span class="dot y"></span>Breakdown tributário</h4><div class="dr"><span class="k">ICMS</span><span class="v g">'+fmt(ti)+'</span></div><div class="dr"><span class="k">ICMS-ST</span><span class="v y">'+fmt(ts)+'</span></div><div class="dr"><span class="k">PIS</span><span class="v">'+fmt(tp)+'</span></div><div class="dr"><span class="k">COFINS</span><span class="v">'+fmt(tc)+'</span></div></div>'
+      +'<div class="dc"><h4><span class="dot b"></span>Destinos por UF</h4><div>'+ufH+'</div></div>'
+    +'</div>'
+    +'<p style="color:var(--muted);font-size:12px">Selecione uma nota para ver os detalhes.</p>'
+    +'</div>';
+}
+
+// ── Renomear arquivo individual ───────────────────────────────────────────────
+function abrirRenomearArq(idx){
+  renameIdx=idx;var n=filteredNotas[idx];
+  document.getElementById('arqSub').textContent=n.arquivo;
+  document.getElementById('arqInput').value=n.nome_sugerido||'';
+  document.getElementById('arqErr').style.display='none';
+  document.getElementById('modalArq').style.display='flex';
+  setTimeout(function(){document.getElementById('arqInput').select();},80);
+}
+async function confirmarRenomearArq(){
+  var nm=document.getElementById('arqInput').value.trim();
+  var err=document.getElementById('arqErr');err.style.display='none';
+  if(!nm){err.textContent='Informe o nome.';err.style.display='block';return;}
+  if(!/^[A-Za-z0-9_\-]+$/.test(nm)){err.textContent='Use apenas letras, números, _ e -.';err.style.display='block';return;}
+  var n=filteredNotas[renameIdx];
+  if(!n||!n.filepath){err.textContent='Caminho não disponível.';err.style.display='block';return;}
+  try{
+    var res=await fetch('/api/renomear',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({filepath:n.filepath,novo_nome:nm})});
+    var data=await res.json();
+    if(data.error){err.textContent=data.error;err.style.display='block';return;}
+    n.arquivo=data.novo_nome;n.filepath=data.novo_path;n.nome_sugerido=nm;
+    document.getElementById('modalArq').style.display='none';
+    renderList();showDetalhe(n,renameIdx);
+  }catch(e){err.textContent='Erro: '+e.message;err.style.display='block';}
+}
+
+// ── Renomear pasta inteira ────────────────────────────────────────────────────
+function abrirModalPasta(){
+  document.getElementById('pastaPath').value='';
+  document.getElementById('pastaErr').style.display='none';
+  document.getElementById('prevSummary').style.display='none';
+  document.getElementById('prevTableWrap').style.display='none';
+  document.getElementById('btnConfirmarPasta').style.display='none';
+  document.getElementById('prevBody').innerHTML='';
+  document.getElementById('modalPasta').style.display='flex';
+  setTimeout(function(){document.getElementById('pastaPath').focus();},80);
+}
+function fecharModalPasta(){
+  document.getElementById('modalPasta').style.display='none';
+}
+
+async function previewPasta(){
+  var pasta=document.getElementById('pastaPath').value.trim();
+  var errEl=document.getElementById('pastaErr');errEl.style.display='none';
+  if(!pasta){errEl.textContent='Informe o caminho da pasta.';errEl.style.display='block';return;}
+
+  document.getElementById('prevSummary').style.display='none';
+  document.getElementById('prevTableWrap').style.display='none';
+  document.getElementById('btnConfirmarPasta').style.display='none';
+  document.getElementById('prevBody').innerHTML='<tr><td colspan="4"><div class="loading"><div class="spinner"></div> Lendo XMLs da pasta...</div></td></tr>';
+  document.getElementById('prevTableWrap').style.display='block';
+
+  try{
+    var res=await fetch('/api/renomear_pasta',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pasta:pasta,preview:true})});
+    var data=await res.json();
+    if(data.error){errEl.textContent=data.error;errEl.style.display='block';document.getElementById('prevTableWrap').style.display='none';return;}
+
+    var rows='';
+    data.resultados.forEach(function(r){
+      if(r.ok){
+        var same=(r.original===r.novo);
+        rows+='<tr class="prev-row-ok"><td class="label">'+r.original+'</td><td class="arrow">→</td><td>'+r.novo+'</td><td>'+(same?'<span class="tag-skip">igual</span>':'<span class="tag-ok">ok</span>')+'</td></tr>';
+      }else{
+        rows+='<tr class="prev-row-err"><td class="label">'+r.original+'</td><td class="arrow">—</td><td style="color:var(--muted)">—</td><td><span class="tag-err">'+(r.erro||'erro')+'</span></td></tr>';
+      }
+    });
+    document.getElementById('prevBody').innerHTML=rows||'<tr><td colspan="4" style="padding:14px;color:var(--muted);text-align:center">Nenhum XML encontrado na pasta.</td></tr>';
+    document.getElementById('prevTableWrap').style.display='block';
+
+    var summary='Total: '+data.resultados.length+' XMLs · ';
+    summary+=data.feitos+' serão renomeados';
+    if(data.erros)summary+=' · <span style="color:var(--red)">'+data.erros+' com erro</span>';
+    document.getElementById('prevSummary').innerHTML=summary;
+    document.getElementById('prevSummary').style.display='block';
+
+    if(data.feitos>0){
+      document.getElementById('btnConfirmarPasta').style.display='inline-block';
+    }
+  }catch(e){errEl.textContent='Erro: '+e.message;errEl.style.display='block';}
+}
+
+async function confirmarPasta(){
+  var pasta=document.getElementById('pastaPath').value.trim();
+  var errEl=document.getElementById('pastaErr');errEl.style.display='none';
+  var btn=document.getElementById('btnConfirmarPasta');
+  btn.disabled=true;btn.textContent='Renomeando...';
+
+  try{
+    var res=await fetch('/api/renomear_pasta',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pasta:pasta,preview:false})});
+    var data=await res.json();
+    if(data.error){errEl.textContent=data.error;errEl.style.display='block';btn.disabled=false;btn.textContent='Renomear tudo';return;}
+
+    // Atualiza tabela com resultado real
+    var rows='';
+    data.resultados.forEach(function(r){
+      if(r.ok&&!r.sem_mudanca){
+        rows+='<tr class="prev-row-ok"><td class="label">'+r.original+'</td><td class="arrow">→</td><td>'+r.novo+'</td><td><span class="tag-ok">renomeado</span></td></tr>';
+      }else if(r.sem_mudanca){
+        rows+='<tr class="prev-row-ok"><td class="label">'+r.original+'</td><td class="arrow">—</td><td>'+r.novo+'</td><td><span class="tag-skip">igual</span></td></tr>';
+      }else{
+        rows+='<tr class="prev-row-err"><td class="label">'+r.original+'</td><td class="arrow">—</td><td style="color:var(--muted)">—</td><td><span class="tag-err">'+(r.erro||'erro')+'</span></td></tr>';
+      }
+    });
+    document.getElementById('prevBody').innerHTML=rows;
+
+    var summary='✔ Concluído: '+data.feitos+' renomeado(s)';
+    if(data.erros)summary+=' · <span style="color:var(--red)">'+data.erros+' erro(s)</span>';
+    document.getElementById('prevSummary').innerHTML=summary;
+
+    btn.style.display='none';
+  }catch(e){errEl.textContent='Erro: '+e.message;errEl.style.display='block';btn.disabled=false;btn.textContent='Renomear tudo';}
+}
+</script>
+</body>
+</html>
