@@ -1,4 +1,4 @@
-# Analisador NF-e — ULFER
+# Analisador NF-e
 
 Sistema local para leitura e análise de XMLs de NF-e em pastas e subpastas.
 
